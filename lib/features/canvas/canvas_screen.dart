@@ -24,6 +24,22 @@ class _CanvasScreenState extends ConsumerState<CanvasScreen> {
   final GlobalKey _repaintKey = GlobalKey();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _centerView());
+  }
+
+  void _centerView() {
+    final size = MediaQuery.of(context).size;
+    final matrix = Matrix4.identity()
+      ..translate(
+        size.width / 2 - AppConstants.canvasSize / 2,
+        size.height / 2 - AppConstants.canvasSize / 2,
+      );
+    _transformController.value = matrix;
+  }
+
+  @override
   void dispose() {
     _transformController.dispose();
     super.dispose();
