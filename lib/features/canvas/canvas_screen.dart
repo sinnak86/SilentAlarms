@@ -26,28 +26,34 @@ class _CanvasScreenState extends ConsumerState<CanvasScreen> {
   @override
   void initState() {
     super.initState();
+    _transformController.addListener(_onTransformChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _centerView());
   }
 
+  void _onTransformChanged() {
+    // Rebuild so the infinite grid repaints with new transform
+    setState(() {});
+  }
+
   void _centerView() {
+    if (!mounted) return;
     final size = MediaQuery.of(context).size;
-    // Find the root node to center on
     final nodes = widget.mindMap.nodes;
     final rootNode = nodes.isNotEmpty
         ? nodes.firstWhere((n) => n.isRoot, orElse: () => nodes.first)
         : null;
     final tx = rootNode != null
         ? size.width / 2 - rootNode.x
-        : size.width / 2 - AppConstants.canvasSize / 2;
+        : size.width / 2;
     final ty = rootNode != null
         ? size.height / 2 - rootNode.y
-        : size.height / 2 - AppConstants.canvasSize / 2;
-    final matrix = Matrix4.identity()..translate(tx, ty);
-    _transformController.value = matrix;
+        : size.height / 2;
+    _transformController.value = Matrix4.identity()..translate(tx, ty);
   }
 
   @override
   void dispose() {
+    _transformController.removeListener(_onTransformChanged);
     _transformController.dispose();
     super.dispose();
   }
@@ -58,6 +64,7 @@ class _CanvasScreenState extends ConsumerState<CanvasScreen> {
     final notifier = ref.read(canvasProvider(widget.mindMap).notifier);
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(canvasState.mindMap.title),
         actions: [
@@ -90,85 +97,92 @@ class _CanvasScreenState extends ConsumerState<CanvasScreen> {
       ),
       body: RepaintBoundary(
         key: _repaintKey,
-        child: GestureDetector(
-          onTapUp: (details) {
-            final pos = _toCanvasPosition(details.localPosition);
-            final tappedNode = _findNodeAt(pos, canvasState.mindMap.nodes);
-
-            if (tappedNode != null) {
-              if (canvasState.connectingFromNodeId != null) {
-                notifier.connectNodes(
-                    canvasState.connectingFromNodeId!, tappedNode.id);
-              } else {
-                notifier.selectNode(tappedNode.id);
-              }
-            } else {
-              notifier.deselectAll();
-            }
-          },
-          onDoubleTapDown: (details) {
-            final pos = _toCanvasPosition(details.localPosition);
-            final tappedNode = _findNodeAt(pos, canvasState.mindMap.nodes);
-
-            if (tappedNode != null) {
-              _showNodeEditor(context, notifier, tappedNode);
-            } else {
-              notifier.addNode(x: pos.dx, y: pos.dy);
-            }
-          },
-          onLongPressStart: (details) {
-            final pos = _toCanvasPosition(details.localPosition);
-            final tappedNode = _findNodeAt(pos, canvasState.mindMap.nodes);
-            if (tappedNode != null) {
-              notifier.startConnecting(tappedNode.id);
-            }
-          },
-          child: InteractiveViewer(
-            transformationController: _transformController,
-            minScale: AppConstants.minScale,
-            maxScale: AppConstants.maxScale,
-            boundaryMargin: const EdgeInsets.all(double.infinity),
-            child: SizedBox(
-              width: AppConstants.canvasSize,
-              height: AppConstants.canvasSize,
-              child: Stack(
-                children: [
-                  // Canvas background
-                  Container(color: Colors.white),
-                  // Grid pattern
-                  CustomPaint(
-                    size: const Size(AppConstants.canvasSize, AppConstants.canvasSize),
-                    painter: _GridPainter(),
-                  ),
-                  // Edges and nodes
-                  CustomPaint(
-                    size: const Size(AppConstants.canvasSize, AppConstants.canvasSize),
-                    painter: CanvasPainter(
-                      mindMap: canvasState.mindMap,
-                      selectedNodeId: canvasState.selectedNodeId,
-                      connectingFromNodeId: canvasState.connectingFromNodeId,
-                    ),
-                  ),
-                  // Draggable node overlays
-                  ...canvasState.mindMap.nodes.map((node) {
-                    return Positioned(
-                      left: node.x - AppConstants.nodeWidth / 2,
-                      top: node.y - AppConstants.nodeHeight / 2,
-                      width: AppConstants.nodeWidth,
-                      height: AppConstants.nodeHeight,
-                      child: GestureDetector(
-                        onPanUpdate: (details) {
-                          notifier.moveNode(node.id, details.delta.dx,
-                              details.delta.dy);
-                        },
-                        child: const SizedBox.expand(),
+        child: Stack(
+          children: [
+            // ── Infinite grid (fills the whole screen, follows pan/zoom) ──
+            CustomPaint(
+              painter: _InfiniteGridPainter(_transformController.value),
+              child: const SizedBox.expand(),
+            ),
+            // ── Pan/zoom canvas with nodes & edges ──
+            GestureDetector(
+              onTapUp: (details) {
+                final pos = _toCanvasPosition(details.localPosition);
+                final tappedNode =
+                    _findNodeAt(pos, canvasState.mindMap.nodes);
+                if (tappedNode != null) {
+                  if (canvasState.connectingFromNodeId != null) {
+                    notifier.connectNodes(
+                        canvasState.connectingFromNodeId!, tappedNode.id);
+                  } else {
+                    notifier.selectNode(tappedNode.id);
+                  }
+                } else {
+                  notifier.deselectAll();
+                }
+              },
+              onDoubleTapDown: (details) {
+                final pos = _toCanvasPosition(details.localPosition);
+                final tappedNode =
+                    _findNodeAt(pos, canvasState.mindMap.nodes);
+                if (tappedNode != null) {
+                  _showNodeEditor(context, notifier, tappedNode);
+                } else {
+                  notifier.addNode(x: pos.dx, y: pos.dy);
+                }
+              },
+              onLongPressStart: (details) {
+                final pos = _toCanvasPosition(details.localPosition);
+                final tappedNode =
+                    _findNodeAt(pos, canvasState.mindMap.nodes);
+                if (tappedNode != null) {
+                  notifier.startConnecting(tappedNode.id);
+                }
+              },
+              child: InteractiveViewer(
+                transformationController: _transformController,
+                minScale: AppConstants.minScale,
+                maxScale: AppConstants.maxScale,
+                boundaryMargin: const EdgeInsets.all(double.infinity),
+                child: SizedBox(
+                  width: AppConstants.canvasSize,
+                  height: AppConstants.canvasSize,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Edges and nodes (transparent background)
+                      CustomPaint(
+                        size: const Size(
+                            AppConstants.canvasSize, AppConstants.canvasSize),
+                        painter: CanvasPainter(
+                          mindMap: canvasState.mindMap,
+                          selectedNodeId: canvasState.selectedNodeId,
+                          connectingFromNodeId:
+                              canvasState.connectingFromNodeId,
+                        ),
                       ),
-                    );
-                  }),
-                ],
+                      // Draggable hit areas for each node
+                      ...canvasState.mindMap.nodes.map((node) {
+                        return Positioned(
+                          left: node.x - AppConstants.nodeWidth / 2,
+                          top: node.y - AppConstants.nodeHeight / 2,
+                          width: AppConstants.nodeWidth,
+                          height: AppConstants.nodeHeight,
+                          child: GestureDetector(
+                            onPanUpdate: (details) {
+                              notifier.moveNode(
+                                  node.id, details.delta.dx, details.delta.dy);
+                            },
+                            child: const SizedBox.expand(),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
+          ],
         ),
       ),
       floatingActionButton: ToolbarWidget(
@@ -223,24 +237,44 @@ class _CanvasScreenState extends ConsumerState<CanvasScreen> {
   }
 }
 
-// Simple grid background painter
-class _GridPainter extends CustomPainter {
+/// Infinite grid that fills the entire screen and follows pan/zoom.
+class _InfiniteGridPainter extends CustomPainter {
+  final Matrix4 transform;
+
+  const _InfiniteGridPainter(this.transform);
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.grey.withAlpha(40)
+      ..color = Colors.grey.withAlpha(45)
       ..strokeWidth = 1;
 
-    const step = 40.0;
-    for (double x = 0; x < size.width; x += step) {
+    // Extract scale and translation from the transform matrix
+    final scale = transform.getMaxScaleOnAxis();
+    final tx = transform.getTranslation().x;
+    final ty = transform.getTranslation().y;
+
+    const step = 40.0; // Grid cell size in canvas units
+    final scaledStep = step * scale;
+
+    // Offset so grid lines follow the canvas origin
+    final offsetX = tx % scaledStep;
+    final offsetY = ty % scaledStep;
+
+    // Vertical lines
+    for (double x = offsetX - scaledStep; x <= size.width + scaledStep;
+        x += scaledStep) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
-    for (double y = 0; y < size.height; y += step) {
+
+    // Horizontal lines
+    for (double y = offsetY - scaledStep; y <= size.height + scaledStep;
+        y += scaledStep) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
   }
 
   @override
-  bool shouldRepaint(_GridPainter _) => false;
+  bool shouldRepaint(_InfiniteGridPainter old) =>
+      old.transform != transform;
 }
-
