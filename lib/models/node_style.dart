@@ -48,13 +48,13 @@ class NodeStyle {
       );
 
   static List<int> get presetColors => [
-        0xFF4CAF50,
-        0xFF2196F3,
-        0xFFFF9800,
-        0xFFE91E63,
-        0xFF9C27B0,
-        0xFF00BCD4,
-        0xFFF44336,
-        0xFF607D8B,
+        0xFF007AFF, // iOS Blue
+        0xFF34C759, // iOS Green
+        0xFFFF9500, // iOS Orange
+        0xFFFF2D55, // iOS Pink
+        0xFF5856D6, // iOS Purple
+        0xFF5AC8FA, // iOS Teal
+        0xFFFF3B30, // iOS Red
+        0xFFAF52DE, // iOS Violet
       ];
 }

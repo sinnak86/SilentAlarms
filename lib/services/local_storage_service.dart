@@ -8,11 +8,16 @@ class LocalStorageService {
   SharedPreferences? _prefs;
 
   Future<void> init() async {
-    _prefs = await SharedPreferences.getInstance();
+    _prefs ??= await SharedPreferences.getInstance();
+  }
+
+  Future<SharedPreferences> _getPrefs() async {
+    _prefs ??= await SharedPreferences.getInstance();
+    return _prefs!;
   }
 
   Future<List<MindMap>> getAllMindMaps() async {
-    final prefs = _prefs!;
+    final prefs = await _getPrefs();
     final keys = prefs.getStringList(_keysKey) ?? [];
     final maps = <MindMap>[];
     for (final key in keys) {
@@ -28,7 +33,8 @@ class LocalStorageService {
   }
 
   Future<MindMap?> getMindMap(String id) async {
-    final jsonStr = _prefs!.getString('$_prefix$id');
+    final prefs = await _getPrefs();
+    final jsonStr = prefs.getString('$_prefix$id');
     if (jsonStr == null) return null;
     try {
       return MindMap.fromJson(jsonDecode(jsonStr) as Map<String, dynamic>);
@@ -38,7 +44,7 @@ class LocalStorageService {
   }
 
   Future<void> saveMindMap(MindMap mindMap) async {
-    final prefs = _prefs!;
+    final prefs = await _getPrefs();
     final keys = prefs.getStringList(_keysKey) ?? [];
     if (!keys.contains(mindMap.id)) {
       keys.add(mindMap.id);
@@ -48,7 +54,7 @@ class LocalStorageService {
   }
 
   Future<void> deleteMindMap(String id) async {
-    final prefs = _prefs!;
+    final prefs = await _getPrefs();
     final keys = prefs.getStringList(_keysKey) ?? [];
     keys.remove(id);
     await prefs.setStringList(_keysKey, keys);

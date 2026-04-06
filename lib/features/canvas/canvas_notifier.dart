@@ -46,6 +46,15 @@ class CanvasNotifier extends StateNotifier<CanvasState> {
   CanvasNotifier(MindMap initialMap)
       : super(CanvasState(mindMap: initialMap));
 
+  void _autoSave() {
+    Future(() async {
+      try {
+        await _storageService.saveMindMap(state.mindMap);
+        if (mounted) state = state.copyWith(isDirty: false);
+      } catch (_) {}
+    });
+  }
+
   // ─── Node Operations ───────────────────────────────────────────────────────
 
   void addNode({double x = 400.0, double y = 400.0, String? parentId}) {
@@ -92,6 +101,7 @@ class CanvasNotifier extends StateNotifier<CanvasState> {
       selectedNodeId: node.id,
       isDirty: true,
     );
+    _autoSave();
   }
 
   void updateNodeText(String nodeId, String text) {
@@ -102,6 +112,7 @@ class CanvasNotifier extends StateNotifier<CanvasState> {
       mindMap: state.mindMap.copyWith(nodes: nodes),
       isDirty: true,
     );
+    _autoSave();
   }
 
   void moveNode(String nodeId, double dx, double dy) {
@@ -112,6 +123,7 @@ class CanvasNotifier extends StateNotifier<CanvasState> {
       mindMap: state.mindMap.copyWith(nodes: nodes),
       isDirty: true,
     );
+    _autoSave();
   }
 
   void deleteNode(String nodeId) {
@@ -131,6 +143,7 @@ class CanvasNotifier extends StateNotifier<CanvasState> {
       clearSelection: true,
       isDirty: true,
     );
+    _autoSave();
   }
 
   void updateNodeStyle(String nodeId, NodeStyle style) {
@@ -141,6 +154,7 @@ class CanvasNotifier extends StateNotifier<CanvasState> {
       mindMap: state.mindMap.copyWith(nodes: nodes),
       isDirty: true,
     );
+    _autoSave();
   }
 
   // ─── Edge Operations ───────────────────────────────────────────────────────
@@ -168,6 +182,7 @@ class CanvasNotifier extends StateNotifier<CanvasState> {
       clearConnecting: true,
       isDirty: true,
     );
+    _autoSave();
   }
 
   void startConnecting(String nodeId) {
@@ -199,6 +214,7 @@ class CanvasNotifier extends StateNotifier<CanvasState> {
       mindMap: state.mindMap.copyWith(nodes: newNodes),
       isDirty: true,
     );
+    _autoSave();
   }
 
   void applyTreeLayout() {
@@ -207,6 +223,7 @@ class CanvasNotifier extends StateNotifier<CanvasState> {
       mindMap: state.mindMap.copyWith(nodes: newNodes),
       isDirty: true,
     );
+    _autoSave();
   }
 
   // ─── Persistence ───────────────────────────────────────────────────────────

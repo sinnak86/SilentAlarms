@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vector_math/vector_math_64.dart' show Vector3;
@@ -22,6 +23,8 @@ class _CanvasScreenState extends ConsumerState<CanvasScreen> {
   final TransformationController _transformController =
       TransformationController();
   final GlobalKey _repaintKey = GlobalKey();
+
+  String? _dragNodeId;
 
   @override
   void initState() {
@@ -64,94 +67,131 @@ class _CanvasScreenState extends ConsumerState<CanvasScreen> {
     final notifier = ref.read(canvasProvider(widget.mindMap).notifier);
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text(canvasState.mindMap.title),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.center_focus_strong),
-            tooltip: 'Center view',
-            onPressed: _centerView,
-          ),
-          if (canvasState.isDirty)
-            IconButton(
-              icon: const Icon(Icons.save),
-              tooltip: 'Save',
-              onPressed: () => notifier.save(),
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: AppBar(
+              backgroundColor: Colors.white.withValues(alpha: 0.75),
+              foregroundColor: const Color(0xFF1C1C1E),
+              elevation: 0,
+              title: Text(canvasState.mindMap.title,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.center_focus_strong),
+                  tooltip: 'Center view',
+                  onPressed: _centerView,
+                ),
+                if (canvasState.isDirty)
+                  IconButton(
+                    icon: const Icon(Icons.save),
+                    tooltip: 'Save',
+                    onPressed: () => notifier.save(),
+                  ),
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'radial':
+                        notifier.applyRadialLayout();
+                      case 'tree':
+                        notifier.applyTreeLayout();
+                    }
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'radial', child: Text('Radial Layout')),
+                    PopupMenuItem(value: 'tree', child: Text('Tree Layout')),
+                  ],
+                ),
+              ],
             ),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              switch (value) {
-                case 'radial':
-                  notifier.applyRadialLayout();
-                case 'tree':
-                  notifier.applyTreeLayout();
-              }
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'radial', child: Text('Radial Layout')),
-              PopupMenuItem(value: 'tree', child: Text('Tree Layout')),
-            ],
           ),
-        ],
+        ),
       ),
-      body: RepaintBoundary(
-        key: _repaintKey,
-        child: Stack(
-          children: [
-            // ── Infinite grid (fills the whole screen, follows pan/zoom) ──
-            CustomPaint(
-              painter: _InfiniteGridPainter(_transformController.value),
-              child: const SizedBox.expand(),
-            ),
-            // ── Pan/zoom canvas with nodes & edges ──
-            GestureDetector(
-              onTapUp: (details) {
-                final pos = _toCanvasPosition(details.localPosition);
-                final tappedNode =
-                    _findNodeAt(pos, canvasState.mindMap.nodes);
-                if (tappedNode != null) {
-                  if (canvasState.connectingFromNodeId != null) {
-                    notifier.connectNodes(
-                        canvasState.connectingFromNodeId!, tappedNode.id);
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFF2F2F7), Color(0xFFE8EFF9)],
+          ),
+        ),
+        child: RepaintBoundary(
+          key: _repaintKey,
+          child: Stack(
+            children: [
+              // ── Infinite grid (fills the whole screen, follows pan/zoom) ──
+              CustomPaint(
+                painter: _InfiniteGridPainter(_transformController.value),
+                child: const SizedBox.expand(),
+              ),
+              // ── Pan/zoom canvas with nodes & edges ──
+              GestureDetector(
+                onTapUp: (details) {
+                  final pos = _toCanvasPosition(details.localPosition);
+                  final tappedNode =
+                      _findNodeAt(pos, canvasState.mindMap.nodes);
+                  if (tappedNode != null) {
+                    if (canvasState.connectingFromNodeId != null) {
+                      notifier.connectNodes(
+                          canvasState.connectingFromNodeId!, tappedNode.id);
+                    } else {
+                      notifier.selectNode(tappedNode.id);
+                    }
                   } else {
-                    notifier.selectNode(tappedNode.id);
+                    notifier.deselectAll();
                   }
-                } else {
-                  notifier.deselectAll();
-                }
-              },
-              onDoubleTapDown: (details) {
-                final pos = _toCanvasPosition(details.localPosition);
-                final tappedNode =
-                    _findNodeAt(pos, canvasState.mindMap.nodes);
-                if (tappedNode != null) {
-                  _showNodeEditor(context, notifier, tappedNode);
-                } else {
-                  notifier.addNode(x: pos.dx, y: pos.dy);
-                }
-              },
-              onLongPressStart: (details) {
-                final pos = _toCanvasPosition(details.localPosition);
-                final tappedNode =
-                    _findNodeAt(pos, canvasState.mindMap.nodes);
-                if (tappedNode != null) {
-                  notifier.startConnecting(tappedNode.id);
-                }
-              },
-              child: InteractiveViewer(
-                transformationController: _transformController,
-                minScale: AppConstants.minScale,
-                maxScale: AppConstants.maxScale,
-                boundaryMargin: const EdgeInsets.all(double.infinity),
-                child: SizedBox(
-                  width: AppConstants.canvasSize,
-                  height: AppConstants.canvasSize,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      // Edges and nodes (transparent background)
-                      CustomPaint(
+                },
+                onDoubleTapDown: (details) {
+                  final pos = _toCanvasPosition(details.localPosition);
+                  final tappedNode =
+                      _findNodeAt(pos, canvasState.mindMap.nodes);
+                  if (tappedNode != null) {
+                    _showNodeEditor(context, notifier, tappedNode);
+                  } else {
+                    notifier.addNode(x: pos.dx, y: pos.dy);
+                  }
+                },
+                onLongPressStart: (details) {
+                  final pos = _toCanvasPosition(details.localPosition);
+                  final tappedNode =
+                      _findNodeAt(pos, canvasState.mindMap.nodes);
+                  if (tappedNode != null) {
+                    notifier.startConnecting(tappedNode.id);
+                  }
+                },
+                child: Listener(
+                  onPointerDown: (event) {
+                    final pos = _toCanvasPosition(event.localPosition);
+                    final node = _findNodeAt(pos, canvasState.mindMap.nodes);
+                    if (node != null) {
+                      setState(() => _dragNodeId = node.id);
+                    }
+                  },
+                  onPointerMove: (event) {
+                    if (_dragNodeId != null) {
+                      final scale =
+                          _transformController.value.getMaxScaleOnAxis();
+                      final scaledDx = event.delta.dx / scale;
+                      final scaledDy = event.delta.dy / scale;
+                      notifier.moveNode(_dragNodeId!, scaledDx, scaledDy);
+                    }
+                  },
+                  onPointerUp: (_) => setState(() => _dragNodeId = null),
+                  onPointerCancel: (_) => setState(() => _dragNodeId = null),
+                  child: InteractiveViewer(
+                    transformationController: _transformController,
+                    minScale: AppConstants.minScale,
+                    maxScale: AppConstants.maxScale,
+                    boundaryMargin: const EdgeInsets.all(double.infinity),
+                    panEnabled: _dragNodeId == null,
+                    child: SizedBox(
+                      width: AppConstants.canvasSize,
+                      height: AppConstants.canvasSize,
+                      child: CustomPaint(
                         size: const Size(
                             AppConstants.canvasSize, AppConstants.canvasSize),
                         painter: CanvasPainter(
@@ -161,28 +201,12 @@ class _CanvasScreenState extends ConsumerState<CanvasScreen> {
                               canvasState.connectingFromNodeId,
                         ),
                       ),
-                      // Draggable hit areas for each node
-                      ...canvasState.mindMap.nodes.map((node) {
-                        return Positioned(
-                          left: node.x - AppConstants.nodeWidth / 2,
-                          top: node.y - AppConstants.nodeHeight / 2,
-                          width: AppConstants.nodeWidth,
-                          height: AppConstants.nodeHeight,
-                          child: GestureDetector(
-                            onPanUpdate: (details) {
-                              notifier.moveNode(
-                                  node.id, details.delta.dx, details.delta.dy);
-                            },
-                            child: const SizedBox.expand(),
-                          ),
-                        );
-                      }),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       floatingActionButton: ToolbarWidget(
@@ -246,7 +270,7 @@ class _InfiniteGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.grey.withAlpha(45)
+      ..color = Colors.blue.withAlpha(25)
       ..strokeWidth = 1;
 
     // Extract scale and translation from the transform matrix
