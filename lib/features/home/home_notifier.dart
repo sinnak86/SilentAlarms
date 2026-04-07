@@ -54,7 +54,7 @@ class HomeNotifier extends StateNotifier<HomeState> {
       x: 400,
       y: 400,
       isRoot: true,
-      style: NodeStyle(colorValue: 0xFF6200EE),
+      style: const NodeStyle(), // default grey
     );
 
     final mindMap = MindMap(
