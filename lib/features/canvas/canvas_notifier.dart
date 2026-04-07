@@ -90,8 +90,7 @@ class CanvasNotifier extends StateNotifier<CanvasState> {
       x: resolvedX,
       y: resolvedY,
       parentId: parentId,
-      style: NodeStyle(colorValue: NodeStyle.presetColors[
-          state.mindMap.nodes.length % NodeStyle.presetColors.length]),
+      style: const NodeStyle(), // default grey
     );
 
     final updatedMap = state.mindMap.copyWith(
