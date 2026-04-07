@@ -37,7 +37,7 @@ class ToolbarWidget extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            FloatingActionButton.small(
+            FloatingActionButton(
               heroTag: 'addLeft',
               onPressed: onAddNodeLeft,
               tooltip: '왼쪽에 노드 추가',
