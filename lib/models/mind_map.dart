@@ -10,6 +10,7 @@ class MindMap {
   final DateTime updatedAt;
   final String? userId;
   final List<double>? viewTransform; // Matrix4 storage (16 values)
+  final String? folderId;
 
   MindMap({
     required this.id,
@@ -20,6 +21,7 @@ class MindMap {
     DateTime? updatedAt,
     this.userId,
     this.viewTransform,
+    this.folderId,
   })  : nodes = nodes ?? [],
         edges = edges ?? [],
         createdAt = createdAt ?? DateTime.now(),
@@ -34,6 +36,7 @@ class MindMap {
     DateTime? updatedAt,
     String? userId,
     List<double>? viewTransform,
+    String? folderId,
   }) {
     return MindMap(
       id: id ?? this.id,
@@ -44,6 +47,7 @@ class MindMap {
       updatedAt: updatedAt ?? DateTime.now(),
       userId: userId ?? this.userId,
       viewTransform: viewTransform ?? this.viewTransform,
+      folderId: folderId ?? this.folderId,
     );
   }
 
@@ -56,6 +60,7 @@ class MindMap {
         'updatedAt': updatedAt.toIso8601String(),
         'userId': userId,
         'viewTransform': viewTransform,
+        'folderId': folderId,
       };
 
   factory MindMap.fromJson(Map<String, dynamic> json) => MindMap(
@@ -73,5 +78,6 @@ class MindMap {
         viewTransform: (json['viewTransform'] as List<dynamic>?)
             ?.map((v) => (v as num).toDouble())
             .toList(),
+        folderId: json['folderId'] as String?,
       );
 }
