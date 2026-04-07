@@ -113,7 +113,8 @@ class CanvasNotifier extends StateNotifier<CanvasState> {
 
     state = state.copyWith(
       mindMap: finalMap,
-      selectedNodeId: node.id,
+      // Keep parent selected when adding a child; only select new node if it's standalone
+      selectedNodeId: parentId != null ? parentId : node.id,
       isDirty: true,
     );
     _autoSave();
