@@ -43,7 +43,7 @@ class HomeScreen extends ConsumerWidget {
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     final visibleMaps = focusedFolder != null
         ? allMaps.where((m) => m.folderId == focusedFolder.id).toList()
-        : allMaps;
+        : <MindMap>[];
 
     return Scaffold(
       appBar: AppBar(
@@ -88,7 +88,9 @@ class HomeScreen extends ConsumerWidget {
                   const SizedBox(height: 8),
                 ],
                 // ── Maps ──────────────────────────────────────────────────
-                if (visibleMaps.isEmpty)
+                if (focusedFolder == null)
+                  _buildNoFolderSelected(context)
+                else if (visibleMaps.isEmpty)
                   _buildEmptyMaps(context)
                 else
                   ...visibleMaps.map((map) => LongPressDraggable<MindMap>(
@@ -357,6 +359,23 @@ class HomeScreen extends ConsumerWidget {
           .push(MaterialPageRoute(builder: (_) => CanvasScreen(mindMap: map)))
           .then((_) => ref.read(homeProvider.notifier).loadAll());
     }
+  }
+
+  Widget _buildNoFolderSelected(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.folder_outlined, size: 60, color: Colors.grey.shade300),
+            const SizedBox(height: 12),
+            Text('폴더를 선택하면 맵 목록이 표시됩니다',
+                style: TextStyle(color: Colors.grey.shade400, fontSize: 15)),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildEmptyMaps(BuildContext context) {
