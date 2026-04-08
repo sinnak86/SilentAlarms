@@ -1,3 +1,4 @@
+import 'dart:math' show pi;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../models/mind_node.dart';
@@ -126,25 +127,20 @@ class _NodeEditorDialogState extends State<NodeEditorDialog> {
                           .labelLarge
                           ?.copyWith(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.maxFinite,
-                    child: SegmentedButton<int>(
-                      style: SegmentedButton.styleFrom(
-                        backgroundColor: Colors.white.withValues(alpha: 0.5),
-                        selectedBackgroundColor: const Color(0xFF007AFF),
-                        selectedForegroundColor: Colors.white,
-                      ),
-                      segments: const [
-                        ButtonSegment(value: 0, label: Text('Rect')),
-                        ButtonSegment(value: 1, label: Text('Round')),
-                        ButtonSegment(value: 2, label: Text('Oval')),
-                        ButtonSegment(value: 3, label: Text('◆')),
+                  // ── Icon-based shape picker (fixed size, no layout shift) ──
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (int i = 0; i < 4; i++) ...[
+                        if (i > 0) const SizedBox(width: 10),
+                        _ShapeButton(
+                          shapeIndex: i,
+                          isSelected: _style.shapeIndex == i,
+                          onTap: () => setState(
+                              () => _style = _style.copyWith(shapeIndex: i)),
+                        ),
                       ],
-                      selected: {_style.shapeIndex},
-                      onSelectionChanged: (selected) => setState(
-                          () => _style =
-                              _style.copyWith(shapeIndex: selected.first)),
-                    ),
+                    ],
                   ),
                   const SizedBox(height: 24),
                   Row(
@@ -186,5 +182,98 @@ class _NodeEditorDialogState extends State<NodeEditorDialog> {
         ),
       ),
     );
+  }
+}
+
+// ── Shape picker button (fixed 52×52, draws the shape icon inside) ────────────
+
+class _ShapeButton extends StatelessWidget {
+  final int shapeIndex;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ShapeButton({
+    required this.shapeIndex,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFF007AFF)
+              : Colors.white.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF007AFF)
+                : Colors.grey.withValues(alpha: 0.3),
+            width: 1.5,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF007AFF).withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : null,
+        ),
+        child: Center(child: _buildIcon()),
+      ),
+    );
+  }
+
+  Widget _buildIcon() {
+    final stroke = isSelected ? Colors.white : Colors.grey.shade600;
+    switch (shapeIndex) {
+      case 0: // Rectangle
+        return Container(
+          width: 30,
+          height: 20,
+          decoration: BoxDecoration(
+            border: Border.all(color: stroke, width: 2),
+          ),
+        );
+      case 1: // Rounded rectangle
+        return Container(
+          width: 30,
+          height: 20,
+          decoration: BoxDecoration(
+            border: Border.all(color: stroke, width: 2),
+            borderRadius: BorderRadius.circular(6),
+          ),
+        );
+      case 2: // Oval
+        return Container(
+          width: 32,
+          height: 20,
+          decoration: BoxDecoration(
+            border: Border.all(color: stroke, width: 2),
+            borderRadius: BorderRadius.circular(100),
+          ),
+        );
+      case 3: // Diamond
+        return Transform.rotate(
+          angle: pi / 4,
+          child: Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              border: Border.all(color: stroke, width: 2),
+            ),
+          ),
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 }

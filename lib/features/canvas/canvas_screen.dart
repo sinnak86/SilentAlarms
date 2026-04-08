@@ -111,20 +111,6 @@ class _CanvasScreenState extends ConsumerState<CanvasScreen> {
                     tooltip: 'Save',
                     onPressed: () => notifier.save(),
                   ),
-                PopupMenuButton<String>(
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'radial':
-                        notifier.applyRadialLayout();
-                      case 'tree':
-                        notifier.applyTreeLayout();
-                    }
-                  },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'radial', child: Text('Radial Layout')),
-                    PopupMenuItem(value: 'tree', child: Text('Tree Layout')),
-                  ],
-                ),
               ],
             ),
           ),
@@ -242,6 +228,13 @@ class _CanvasScreenState extends ConsumerState<CanvasScreen> {
         onDeleteNode: canvasState.selectedNodeId != null
             ? () => notifier.deleteNode(canvasState.selectedNodeId!)
             : null,
+        onRenameNode: canvasState.selectedNodeId != null
+            ? () {
+                final node = canvasState.mindMap.nodes.firstWhere(
+                    (n) => n.id == canvasState.selectedNodeId);
+                _showRenameDialog(context, notifier, node.id, node.text);
+              }
+            : null,
         onExport: () {},
       ),
     );
@@ -267,6 +260,71 @@ class _CanvasScreenState extends ConsumerState<CanvasScreen> {
       }
     }
     return null;
+  }
+
+  void _showRenameDialog(BuildContext context, CanvasNotifier notifier,
+      String nodeId, String currentText) {
+    final ctrl = TextEditingController(text: currentText);
+    showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (ctx) => Align(
+        alignment: Alignment.bottomCenter,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 110),
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 20,
+                      offset: const Offset(0, 4))
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.abc, color: Color(0xFF007AFF), size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: ctrl,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        hintText: '노드명 입력',
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      onSubmitted: (v) {
+                        if (v.trim().isNotEmpty) {
+                          notifier.updateNodeText(nodeId, v.trim());
+                        }
+                        Navigator.of(ctx).pop();
+                      },
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.check_circle,
+                        color: Color(0xFF007AFF)),
+                    onPressed: () {
+                      if (ctrl.text.trim().isNotEmpty) {
+                        notifier.updateNodeText(nodeId, ctrl.text.trim());
+                      }
+                      Navigator.of(ctx).pop();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _showNodeEditor(
