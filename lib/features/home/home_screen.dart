@@ -48,6 +48,15 @@ class HomeScreen extends ConsumerWidget {
         ? allMaps.where((m) => m.folderId == focusedFolder.id).toList()
         : <MindMap>[];
 
+    // Map count per folder for badges
+    final mapCountByFolder = <String, int>{};
+    for (final m in state.mindMaps) {
+      if (m.folderId != null) {
+        mapCountByFolder[m.folderId!] =
+            (mapCountByFolder[m.folderId!] ?? 0) + 1;
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Mind Maps'),
@@ -84,6 +93,7 @@ class HomeScreen extends ConsumerWidget {
                             folder: folder,
                             isFocused: state.focusedFolderId == folder.id,
                             isDraggingOver: candidates.isNotEmpty,
+                            mapCount: mapCountByFolder[folder.id] ?? 0,
                             onTap: () => notifier.toggleFolderFocus(folder.id),
                           ),
                         );
@@ -170,26 +180,33 @@ class HomeScreen extends ConsumerWidget {
           ? null
           : FloatingActionButton(
               onPressed: () => _showCreateDialog(context, ref),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  const Icon(Icons.account_tree, size: 26),
-                  Positioned(
-                    right: 2,
-                    top: 2,
-                    child: Container(
-                      width: 16,
-                      height: 16,
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade400,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 1.5),
-                      ),
-                      child: const Icon(Icons.add,
-                          size: 11, color: Colors.white),
+              child: SizedBox(
+                width: 56,
+                height: 56,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Center(
+                      child: Icon(Icons.account_tree, size: 22),
                     ),
-                  ),
-                ],
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade400,
+                          shape: BoxShape.circle,
+                          border:
+                              Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        child: const Icon(Icons.add,
+                            size: 11, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
     );
@@ -501,12 +518,14 @@ class _FolderTile extends StatelessWidget {
   final MindFolder folder;
   final bool isFocused;
   final bool isDraggingOver;
+  final int mapCount;
   final VoidCallback onTap;
 
   const _FolderTile({
     required this.folder,
     required this.isFocused,
     required this.isDraggingOver,
+    required this.mapCount,
     required this.onTap,
   });
 
@@ -574,53 +593,82 @@ class _FolderTile extends StatelessWidget {
               ),
             ),
           ),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            width: 110,
-            padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
-            decoration: BoxDecoration(
-              color: _bg(),
-              borderRadius: const BorderRadius.only(
-                topRight: Radius.circular(12),
-                bottomLeft: Radius.circular(12),
-                bottomRight: Radius.circular(12),
-              ),
-              border: Border.all(color: borderColor, width: borderWidth),
-              boxShadow: isFocused
-                  ? [
-                      BoxShadow(
-                        color: const Color(0xFF007AFF).withAlpha(50),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      )
-                    ]
-                  : null,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  isFocused
-                      ? Icons.folder_open_rounded
-                      : Icons.folder_rounded,
-                  color: accent,
-                  size: 32,
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 110,
+                padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
+                decoration: BoxDecoration(
+                  color: _bg(),
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(12),
+                    bottomLeft: Radius.circular(12),
+                    bottomRight: Radius.circular(12),
+                  ),
+                  border: Border.all(color: borderColor, width: borderWidth),
+                  boxShadow: isFocused
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF007AFF).withAlpha(50),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          )
+                        ]
+                      : null,
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  folder.name,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight:
-                        isFocused ? FontWeight.w700 : FontWeight.w500,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isFocused
+                          ? Icons.folder_open_rounded
+                          : Icons.folder_rounded,
+                      color: accent,
+                      size: 32,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      folder.name,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight:
+                            isFocused ? FontWeight.w700 : FontWeight.w500,
+                        color: accent,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Map count badge
+              Positioned(
+                right: -6,
+                top: -6,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
                     color: accent,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$mapCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
