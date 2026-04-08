@@ -60,69 +60,151 @@ class HomeScreen extends ConsumerWidget {
       ),
       body: state.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Folders ───────────────────────────────────────────────
-                if (state.folders.isNotEmpty) ...[
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: state.folders.map((folder) {
-                      return DragTarget<MindMap>(
-                        onWillAcceptWithDetails: (d) =>
-                            d.data.folderId != folder.id,
-                        onAcceptWithDetails: (d) =>
-                            notifier.moveMapToFolder(d.data.id, folder.id),
-                        builder: (ctx, candidates, _) => _FolderTile(
-                          folder: folder,
-                          isFocused: state.focusedFolderId == folder.id,
-                          isDraggingOver: candidates.isNotEmpty,
-                          onTap: () => notifier.toggleFolderFocus(folder.id),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 14),
-                  const Divider(thickness: 2, color: Color(0xFFB0B0B0)),
-                  const SizedBox(height: 8),
-                ],
-                // ── Maps ──────────────────────────────────────────────────
-                if (focusedFolder == null)
-                  _buildNoFolderSelected(context)
-                else if (visibleMaps.isEmpty)
-                  _buildEmptyMaps(context)
-                else
-                  ...visibleMaps.map((map) => LongPressDraggable<MindMap>(
-                        data: map,
-                        hapticFeedbackOnStart: true,
-                        feedback: Material(
-                          elevation: 6,
-                          borderRadius: BorderRadius.circular(12),
-                          child: SizedBox(
-                            width: 300,
-                            child: _MindMapCard(
-                                mindMap: map, onTap: () {}, onDelete: () {}),
+                // ── Fixed Folder Area ────────────────────────────────────
+                if (state.folders.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: state.folders.map((folder) {
+                        return DragTarget<MindMap>(
+                          onWillAcceptWithDetails: (d) =>
+                              d.data.folderId != folder.id,
+                          onAcceptWithDetails: (d) =>
+                              notifier.moveMapToFolder(d.data.id, folder.id),
+                          builder: (ctx, candidates, _) => _FolderTile(
+                            folder: folder,
+                            isFocused: state.focusedFolderId == folder.id,
+                            isDraggingOver: candidates.isNotEmpty,
+                            onTap: () => notifier.toggleFolderFocus(folder.id),
                           ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                // ── Fixed Divider ─────────────────────────────────────────
+                const Divider(thickness: 2, color: Color(0xFFB0B0B0), height: 1),
+                // ── Scrollable Map Area ───────────────────────────────────
+                Expanded(
+                  child: focusedFolder == null
+                      ? _buildNoFolderSelected(context)
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Folder name header
+                            Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                              child: Text(
+                                focusedFolder.name,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1C1C1E),
+                                ),
+                              ),
+                            ),
+                            // Map grid
+                            Expanded(
+                              child: visibleMaps.isEmpty
+                                  ? _buildEmptyMaps(context)
+                                  : LayoutBuilder(
+                                      builder: (ctx, constraints) {
+                                        const spacing = 10.0;
+                                        const hPad = 16.0;
+                                        final tileWidth =
+                                            (constraints.maxWidth -
+                                                    hPad * 2 -
+                                                    spacing) /
+                                                2;
+                                        return SingleChildScrollView(
+                                          padding: const EdgeInsets.fromLTRB(
+                                              16, 0, 16, 24),
+                                          child: Wrap(
+                                            spacing: spacing,
+                                            runSpacing: spacing,
+                                            children:
+                                                visibleMaps.map((map) {
+                                              return LongPressDraggable<
+                                                  MindMap>(
+                                                data: map,
+                                                hapticFeedbackOnStart: true,
+                                                feedback: Material(
+                                                  elevation: 6,
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          12),
+                                                  child: SizedBox(
+                                                    width: tileWidth,
+                                                    child: _MapTile(
+                                                      mindMap: map,
+                                                      onTap: () {},
+                                                      onDelete: () {},
+                                                    ),
+                                                  ),
+                                                ),
+                                                childWhenDragging: Opacity(
+                                                  opacity: 0.35,
+                                                  child: SizedBox(
+                                                    width: tileWidth,
+                                                    child: _MapTile(
+                                                      mindMap: map,
+                                                      onTap: () {},
+                                                      onDelete: () {},
+                                                    ),
+                                                  ),
+                                                ),
+                                                child: SizedBox(
+                                                  width: tileWidth,
+                                                  child: _MapTile(
+                                                    mindMap: map,
+                                                    onTap: () => _openCanvas(
+                                                        context, ref, map),
+                                                    onDelete: () => notifier
+                                                        .deleteMindMap(map.id),
+                                                  ),
+                                                ),
+                                              );
+                                            }).toList(),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ],
                         ),
-                        childWhenDragging: Opacity(
-                          opacity: 0.35,
-                          child: _MindMapCard(
-                              mindMap: map, onTap: () {}, onDelete: () {}),
-                        ),
-                        child: _MindMapCard(
-                          mindMap: map,
-                          onTap: () => _openCanvas(context, ref, map),
-                          onDelete: () => notifier.deleteMindMap(map.id),
-                        ),
-                      )),
+                ),
               ],
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCreateDialog(context, ref),
-        icon: const Icon(Icons.add),
-        label: const Text('New Map'),
-      ),
+      floatingActionButton: focusedFolder == null
+          ? null
+          : FloatingActionButton(
+              onPressed: () => _showCreateDialog(context, ref),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const Icon(Icons.account_tree, size: 26),
+                  Positioned(
+                    right: 4,
+                    bottom: 4,
+                    child: Container(
+                      width: 15,
+                      height: 15,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.add,
+                          size: 13, color: Color(0xFF007AFF)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 
@@ -261,7 +343,9 @@ class HomeScreen extends ConsumerWidget {
               return GestureDetector(
                 onTap: () {
                   Navigator.of(ctx).pop();
-                  ref.read(homeProvider.notifier).updateFolderColor(folder.id, cv);
+                  ref
+                      .read(homeProvider.notifier)
+                      .updateFolderColor(folder.id, cv);
                 },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
@@ -362,36 +446,30 @@ class HomeScreen extends ConsumerWidget {
   }
 
   Widget _buildNoFolderSelected(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.folder_outlined, size: 60, color: Colors.grey.shade300),
-            const SizedBox(height: 12),
-            Text('폴더를 선택하면 맵 목록이 표시됩니다',
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 15)),
-          ],
-        ),
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.folder_outlined, size: 60, color: Colors.grey.shade300),
+          const SizedBox(height: 12),
+          Text('폴더를 선택하면 맵 목록이 표시됩니다',
+              style: TextStyle(color: Colors.grey.shade400, fontSize: 15)),
+        ],
       ),
     );
   }
 
   Widget _buildEmptyMaps(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.account_tree_outlined,
-                size: 60, color: Colors.grey.shade300),
-            const SizedBox(height: 12),
-            Text('맵이 없습니다',
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 15)),
-          ],
-        ),
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.account_tree_outlined,
+              size: 60, color: Colors.grey.shade300),
+          const SizedBox(height: 12),
+          Text('맵이 없습니다',
+              style: TextStyle(color: Colors.grey.shade400, fontSize: 15)),
+        ],
       ),
     );
   }
@@ -412,7 +490,6 @@ class _FolderTile extends StatelessWidget {
     required this.onTap,
   });
 
-  // Accent color for icon/text – ensure it's dark enough to read on light bg
   Color _accent() {
     if (folder.colorValue != null) {
       final c = Color(folder.colorValue!);
@@ -442,7 +519,6 @@ class _FolderTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = _accent();
-    // Border color: focused = blue gradient indicator, drag-over = green, default = subtle
     Color borderColor;
     double borderWidth;
     if (isDraggingOver) {
@@ -462,7 +538,6 @@ class _FolderTile extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Tab (decorative, no text)
           Container(
             width: 44,
             height: 9,
@@ -479,13 +554,12 @@ class _FolderTile extends StatelessWidget {
               ),
             ),
           ),
-          // Body — border-only focus indicator, bg unchanged
           AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             width: 110,
             padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
             decoration: BoxDecoration(
-              color: _bg(), // always same regardless of focus
+              color: _bg(),
               borderRadius: const BorderRadius.only(
                 topRight: Radius.circular(12),
                 bottomLeft: Radius.circular(12),
@@ -534,14 +608,14 @@ class _FolderTile extends StatelessWidget {
   }
 }
 
-// ── MindMap Card ──────────────────────────────────────────────────────────────
+// ── Map Tile (compact grid card) ──────────────────────────────────────────────
 
-class _MindMapCard extends StatelessWidget {
+class _MapTile extends StatelessWidget {
   final MindMap mindMap;
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
-  const _MindMapCard({
+  const _MapTile({
     required this.mindMap,
     required this.onTap,
     required this.onDelete,
@@ -549,35 +623,61 @@ class _MindMapCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateStr = DateFormat('MMM d, yyyy').format(mindMap.updatedAt);
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: const Color(0xFF007AFF).withAlpha(20),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Icon(Icons.account_tree,
-              color: Color(0xFF007AFF), size: 20),
+    final dateStr = DateFormat('yy.MM.dd').format(mindMap.updatedAt);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(15),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        title: Text(mindMap.title,
-            style: const TextStyle(
-                fontWeight: FontWeight.w600, fontSize: 14)),
-        subtitle: Text(
-          '${mindMap.nodes.length} nodes · $dateStr',
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF007AFF).withAlpha(20),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.account_tree,
+                      color: Color(0xFF007AFF), size: 18),
+                ),
+                GestureDetector(
+                  onTap: () => _confirmDelete(context),
+                  child: const Icon(Icons.delete_outline,
+                      color: Colors.redAccent, size: 18),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              mindMap.title,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600, fontSize: 13),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${mindMap.nodes.length}개 노드 · $dateStr',
+              style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
+            ),
+          ],
         ),
-        trailing: IconButton(
-          icon: const Icon(Icons.delete_outline,
-              color: Colors.redAccent, size: 20),
-          onPressed: () => _confirmDelete(context),
-        ),
-        onTap: onTap,
       ),
     );
   }
@@ -586,19 +686,19 @@ class _MindMapCard extends StatelessWidget {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Delete Mind Map'),
-        content: Text('Delete "${mindMap.title}"? This cannot be undone.'),
+        title: const Text('맵 삭제'),
+        content: Text('"${mindMap.title}"을 삭제하시겠습니까?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel')),
+              child: const Text('취소')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
               Navigator.of(context).pop();
               onDelete();
             },
-            child: const Text('Delete'),
+            child: const Text('삭제'),
           ),
         ],
       ),
