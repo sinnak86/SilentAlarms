@@ -175,6 +175,25 @@ class HomeNotifier extends StateNotifier<HomeState> {
     }
     await loadAll();
   }
+
+  /// Imports a map (from JSON backup) into the "기본" folder with a fresh ID.
+  Future<void> importMapToDefaultFolder(MindMap importedMap) async {
+    String? defaultFolderId = state.folders
+        .where((f) => f.parentId == null && f.name == '기본')
+        .firstOrNull
+        ?.id;
+    defaultFolderId ??=
+        await _storageService.ensureDefaultFolderAndMigrate();
+
+    final newMap = importedMap.copyWith(
+      id: _uuid.v4(),
+      folderId: defaultFolderId,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    await _storageService.saveMindMap(newMap);
+    await loadAll();
+  }
 }
 
 final homeProvider = StateNotifierProvider<HomeNotifier, HomeState>(

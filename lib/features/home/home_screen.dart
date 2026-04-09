@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../models/mind_map.dart';
 import '../../models/mind_folder.dart';
 import '../../models/node_style.dart';
+import '../../services/file_service.dart';
 import '../canvas/canvas_screen.dart';
 import 'home_notifier.dart';
 
@@ -234,6 +236,7 @@ class HomeScreen extends ConsumerWidget {
 
     if (focusedMap != null) {
       items.addAll([
+        const PopupMenuItem(value: 'export_map', child: Text('내보내기 (JSON)')),
         const PopupMenuItem(
           value: 'delete_map',
           child: Text('맵 삭제', style: TextStyle(color: Colors.red)),
@@ -248,6 +251,11 @@ class HomeScreen extends ConsumerWidget {
       child:
           Text('폴더생성 (${state.folders.length}/${HomeNotifier.maxFolders})'),
     ));
+
+    items.addAll([
+      const PopupMenuDivider(),
+      const PopupMenuItem(value: 'import_map', child: Text('맵 가져오기 (JSON)')),
+    ]);
 
     return items;
   }
@@ -265,6 +273,10 @@ class HomeScreen extends ConsumerWidget {
         if (focused != null) _confirmDeleteFolder(context, ref, focused);
       case 'delete_map':
         if (focusedMap != null) _confirmDeleteMap(context, ref, focusedMap);
+      case 'export_map':
+        if (focusedMap != null) _exportMap(context, focusedMap);
+      case 'import_map':
+        _importMap(context, ref);
     }
   }
 
@@ -436,6 +448,82 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  // ── Export ────────────────────────────────────────────────────────────────
+
+  Future<void> _exportMap(BuildContext context, MindMap map) async {
+    try {
+      final jsonStr = jsonEncode(map.toJson());
+      final safeTitle = map.title.replaceAll(RegExp(r'[/\\:*?"<>|]'), '_');
+      final timestamp = DateFormat('yyyyMMddHHmmss').format(DateTime.now());
+      final fileName = '${safeTitle}_${timestamp}_map.json';
+      await downloadJsonFile(jsonStr, fileName);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"$fileName" 저장됨'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('내보내기 실패'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  // ── Import ────────────────────────────────────────────────────────────────
+
+  Future<void> _importMap(BuildContext context, WidgetRef ref) async {
+    try {
+      final content = await pickJsonFile();
+      if (content == null) return; // user cancelled
+
+      final Map<String, dynamic> json =
+          jsonDecode(content) as Map<String, dynamic>;
+      final map = MindMap.fromJson(json);
+
+      await ref.read(homeProvider.notifier).importMapToDefaultFolder(map);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"${map.title}" 가져오기 완료 (기본 폴더에 저장됨)'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } on FormatException {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('올바른 맵 JSON 파일이 아닙니다'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('가져오기 실패: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   void _openCanvas(BuildContext context, WidgetRef ref, MindMap mindMap) {
