@@ -152,10 +152,18 @@ final class AlarmManager: NSObject {
                 NotificationCenter.default.post(name: .alarmFiredNoEarphones, object: alarm)
             }
             // Re-check every 30s for up to 2 minutes in case earphones are connected later
+            let firingAlarmID = alarm.id
             var retryCount = 0
             Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] timer in
                 retryCount += 1
-                if retryCount >= 4 { timer.invalidate(); self?.firingAlarm = nil; return }
+                if retryCount >= 4 {
+                    timer.invalidate()
+                    // Only clear firingAlarm if it's still the same alarm (not replaced by another)
+                    if self?.firingAlarm?.id == firingAlarmID {
+                        self?.firingAlarm = nil
+                    }
+                    return
+                }
                 if AudioRouteManager.shared.areEarphonesConnected {
                     timer.invalidate()
                     self?.playAlarmSound(for: alarm)
@@ -199,7 +207,9 @@ final class AlarmManager: NSObject {
         alarmPlayer?.stop()
         alarmPlayer = nil
         firingAlarm = nil
-        // Restart silent loop if backgrounded
+        // Restore session to mixWithOthers so other audio (music, etc.) can resume
+        configureAudioSession()
+        // Restart silent loop if backgrounded to keep the process alive
         if UIApplication.shared.applicationState == .background {
             startSilentLoop()
         }

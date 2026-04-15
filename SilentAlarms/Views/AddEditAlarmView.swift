@@ -65,6 +65,7 @@ final class AddEditAlarmView: UIView {
         b.setTitleColor(.systemOrange, for: .normal)
         b.layer.borderColor = UIColor.systemOrange.cgColor
         b.backgroundColor = .clear
+        b.translatesAutoresizingMaskIntoConstraints = false
         return b
     }
 
@@ -76,7 +77,14 @@ final class AddEditAlarmView: UIView {
         return l
     }()
 
-    private let soundPicker = UIPickerView()
+    private let soundPicker: UIPickerView = {
+        let p = UIPickerView()
+        p.translatesAutoresizingMaskIntoConstraints = false
+        // Suppress intrinsic content size conflict with explicit height constraint
+        p.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        p.setContentHuggingPriority(.defaultLow, for: .vertical)
+        return p
+    }()
 
     private let alarmLabelField: UITextField = {
         let tf = UITextField()

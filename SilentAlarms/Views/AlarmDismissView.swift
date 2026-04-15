@@ -225,27 +225,33 @@ final class SlideToStopControl: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        guard bounds.width > 0 else { return }
         trackWidth = bounds.width
-        fillView.frame.size.width = thumbLeadingConstraint.constant + thumb.bounds.width / 2
+        let thumbWidth = max(bounds.height - 8, 1)
+        fillView.frame.size.width = thumbLeadingConstraint.constant + thumbWidth / 2
     }
 
+    private var effectiveThumbWidth: CGFloat { max(bounds.height - 8, 1) }
+    private var effectiveMaxX: CGFloat { max(trackWidth - effectiveThumbWidth - 4, effectiveThumbWidth + 4) }
+
     @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
-        let thumbWidth: CGFloat = bounds.height - 8
-        let maxX = trackWidth - thumbWidth - 4
+        guard trackWidth > 0 else { return }
+        let thumbWidth = effectiveThumbWidth
+        let maxX = effectiveMaxX
         let translation = gesture.translation(in: self)
         let rawX = thumbLeadingConstraint.constant + translation.x
         let clampedX = max(4, min(rawX, maxX))
+        let range = maxX - 4
 
         switch gesture.state {
         case .changed:
             thumbLeadingConstraint.constant = clampedX
             fillView.frame.size.width = clampedX + thumbWidth / 2
-            let progress = (clampedX - 4) / (maxX - 4)
-            trackLabel.alpha = 1 - progress
+            trackLabel.alpha = range > 0 ? 1 - (clampedX - 4) / range : 0
             gesture.setTranslation(.zero, in: self)
 
         case .ended, .cancelled:
-            let progress = (clampedX - 4) / (maxX - 4)
+            let progress = range > 0 ? (clampedX - 4) / range : 0
             if progress >= 0.80 {
                 completeDismiss()
             } else {
@@ -257,8 +263,8 @@ final class SlideToStopControl: UIView {
     }
 
     private func completeDismiss() {
-        let thumbWidth: CGFloat = bounds.height - 8
-        let maxX = trackWidth - thumbWidth - 4
+        let maxX = effectiveMaxX
+        let thumbWidth = effectiveThumbWidth
         UIView.animate(withDuration: 0.2) {
             self.thumbLeadingConstraint.constant = maxX
             self.fillView.frame.size.width = maxX + thumbWidth / 2

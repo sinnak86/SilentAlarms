@@ -13,4 +13,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window?.rootViewController = nav
         window?.makeKeyAndVisible()
     }
+
+    func sceneDidEnterBackground(_ scene: UIScene) {
+        AlarmManager.shared.startBackgroundKeepAlive()
+    }
+
+    func sceneWillEnterForeground(_ scene: UIScene) {
+        AlarmManager.shared.stopBackgroundKeepAlive()
+        try? AVAudioSession.sharedInstance().setActive(true)
+    }
 }

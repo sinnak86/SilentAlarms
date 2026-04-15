@@ -19,15 +19,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
-    func applicationDidEnterBackground(_ application: UIApplication) {
-        AlarmManager.shared.startBackgroundKeepAlive()
-    }
-
-    func applicationWillEnterForeground(_ application: UIApplication) {
-        AlarmManager.shared.stopBackgroundKeepAlive()
-        try? AVAudioSession.sharedInstance().setActive(true)
-    }
-
     // MARK: UISceneSession Lifecycle
 
     func application(_ application: UIApplication,
