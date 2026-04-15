@@ -55,7 +55,10 @@ struct ContentView: View {
                 showAddSheet = false
                 editingAlarm = nil
             }
+            .environmentObject(audioManager)
         }
+        // ── Force dark colour scheme throughout ─────────────────
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - Subviews
@@ -172,6 +175,7 @@ struct AddAlarmView: View {
     let onSave: (Alarm) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var audioManager: AudioManager
 
     @State private var selectedTime: Date
     @State private var selectedDays: Set<Weekday>
@@ -241,12 +245,17 @@ struct AddAlarmView: View {
                             Text(sound.displayName)
                             Spacer()
                             if selectedSound == sound {
-                                Image(systemName: "checkmark")
+                                Image(systemName: "speaker.wave.2.fill")
                                     .foregroundColor(.accentColor)
+                                    .font(.caption)
                             }
                         }
                         .contentShape(Rectangle())
-                        .onTapGesture { selectedSound = sound }
+                        .onTapGesture {
+                            selectedSound = sound
+                            // Preview the sound immediately when selected
+                            audioManager.previewSound(sound)
+                        }
                     }
                 }
             }
@@ -263,6 +272,7 @@ struct AddAlarmView: View {
                 }
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     private func saveAlarm() {

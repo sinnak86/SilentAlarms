@@ -75,7 +75,8 @@ final class AlarmManager: ObservableObject {
 
     func startAlarmChecking() {
         checkTimer?.invalidate()
-        let timer = Timer(timeInterval: 30, repeats: true) { [weak self] _ in
+        // Check every 15 seconds — reliable within any minute, works with firedAlarmIDs dedup.
+        let timer = Timer(timeInterval: 15, repeats: true) { [weak self] _ in
             self?.checkAlarms()
         }
         RunLoop.main.add(timer, forMode: .common)

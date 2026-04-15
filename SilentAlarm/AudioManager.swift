@@ -6,6 +6,12 @@ final class AudioManager: ObservableObject {
     // MARK: - Published
 
     @Published private(set) var isHeadphonesConnected: Bool = false
+    @Published private(set) var isAlarmPlaying: Bool = false
+
+    // MARK: - Callbacks
+
+    /// Called on main thread when headphones disconnect while alarm is playing.
+    var onHeadphonesDisconnectedDuringAlarm: (() -> Void)?
 
     // MARK: - Private
 
@@ -59,7 +65,16 @@ final class AudioManager: ObservableObject {
             .publisher(for: AVAudioSession.routeChangeNotification)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                self?.updateHeadphoneState()
+                guard let self else { return }
+                let wasConnected = self.isHeadphonesConnected
+                self.updateHeadphoneState()
+
+                // If headphones just disconnected while alarm is playing, stop immediately
+                // and never fall back to speaker.
+                if wasConnected && !self.isHeadphonesConnected && self.isAlarmPlaying {
+                    self.stopAlarm()
+                    self.onHeadphonesDisconnectedDuringAlarm?()
+                }
             }
     }
 
@@ -81,7 +96,8 @@ final class AudioManager: ObservableObject {
 
     // MARK: - Background keepalive
 
-    /// Plays a near-silent loop to keep the app alive in background.
+    /// Plays a near-inaudible low-amplitude tone to keep the audio session alive in background.
+    /// Pure silence is ignored by iOS and allows the session to be suspended; a non-zero signal prevents this.
     func startSilentLoop() {
         guard !silentNode.isPlaying else { return }
 
@@ -89,7 +105,7 @@ final class AudioManager: ObservableObject {
             try? engine.start()
         }
 
-        let buffer = makeSilentBuffer(duration: 10.0)
+        let buffer = makeKeepaliveBuffer(duration: 10.0)
         silentNode.scheduleBuffer(buffer, at: nil, options: .loops)
         silentNode.play()
     }
@@ -111,33 +127,53 @@ final class AudioManager: ObservableObject {
         }
 
         alarmNode.stop()
-        let buffer = makeAlarmBuffer(for: sound)
+        let buffer = makeAlarmBuffer(for: sound, duration: 4.0)
         alarmNode.scheduleBuffer(buffer, at: nil, options: .loops)
         alarmNode.play()
+        isAlarmPlaying = true
     }
 
     func stopAlarm() {
         alarmNode.stop()
+        isAlarmPlaying = false
+    }
+
+    // MARK: - Sound preview (plays without requiring headphones — for picker UI)
+
+    func previewSound(_ sound: AlarmSound) {
+        if !engine.isRunning {
+            try? engine.start()
+        }
+        // Stop any existing preview or alarm
+        alarmNode.stop()
+        // Play a 2-second preview (no loop); isAlarmPlaying stays false
+        let buffer = makeAlarmBuffer(for: sound, duration: 2.0)
+        alarmNode.scheduleBuffer(buffer, at: nil, options: [])
+        alarmNode.play()
     }
 
     // MARK: - PCM Buffer generation
 
-    private func makeSilentBuffer(duration: Double) -> AVAudioPCMBuffer {
+    /// Very low amplitude (0.001) sine tone — inaudible at normal volumes but non-zero,
+    /// which prevents iOS from suspending the audio session during background operation.
+    private func makeKeepaliveBuffer(duration: Double) -> AVAudioPCMBuffer {
         let sampleRate: Double = 44100
         let frameCount = AVAudioFrameCount(sampleRate * duration)
         let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
         let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount)!
         buffer.frameLength = frameCount
-        // All samples zero → silence
         if let data = buffer.floatChannelData?[0] {
-            for i in 0..<Int(frameCount) { data[i] = 0.0 }
+            for i in 0..<Int(frameCount) {
+                let t = Float(i) / Float(sampleRate)
+                // 0.001 amplitude at 220 Hz — well below audible threshold through closed headphones
+                data[i] = 0.001 * sin(2 * .pi * 220 * t)
+            }
         }
         return buffer
     }
 
-    private func makeAlarmBuffer(for sound: AlarmSound) -> AVAudioPCMBuffer {
+    private func makeAlarmBuffer(for sound: AlarmSound, duration: Double) -> AVAudioPCMBuffer {
         let sampleRate: Double = 44100
-        let duration: Double = 4.0
         let frameCount = AVAudioFrameCount(sampleRate * duration)
         let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
         let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount)!
