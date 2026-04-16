@@ -154,20 +154,15 @@ final class AudioManager: ObservableObject {
 
     // MARK: - PCM Buffer generation
 
-    /// Very low amplitude (0.001) sine tone — inaudible at normal volumes but non-zero,
-    /// which prevents iOS from suspending the audio session during background operation.
     private func makeKeepaliveBuffer(duration: Double) -> AVAudioPCMBuffer {
         let sampleRate: Double = 44100
         let frameCount = AVAudioFrameCount(sampleRate * duration)
         let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
         let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount)!
         buffer.frameLength = frameCount
+        // 완전 무음 — .playback 카테고리는 무음이어도 백그라운드 세션 유지됨
         if let data = buffer.floatChannelData?[0] {
-            for i in 0..<Int(frameCount) {
-                let t = Float(i) / Float(sampleRate)
-                // 0.001 amplitude at 220 Hz — well below audible threshold through closed headphones
-                data[i] = 0.001 * sin(2 * .pi * 220 * t)
-            }
+            memset(data, 0, Int(frameCount) * MemoryLayout<Float>.size)
         }
         return buffer
     }

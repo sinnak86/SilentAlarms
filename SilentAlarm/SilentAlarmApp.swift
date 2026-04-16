@@ -12,6 +12,7 @@ struct SilentAlarmApp: App {
             ContentView()
                 .environmentObject(alarmManager)
                 .environmentObject(audioManager)
+                .preferredColorScheme(.dark)
                 .onAppear {
                     // Wire up the dependency after both objects are ready
                     alarmManager.audioManager = audioManager
